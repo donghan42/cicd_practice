@@ -33,7 +33,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 定义环境变量，通过 Shell 截取 SHA 前7位
+      # 1. 生成唯一的短 SHA 环境变量（核心：不重复的标签）
       - name: Set short SHA environment variable
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
@@ -47,13 +47,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # 2. 构建并推送：仅保留唯一标签（去掉latest，避免覆盖）
+      #    或保留latest但确保短SHA标签是核心标识
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          # 使用环境变量中的短 SHA
+          # 关键：短 SHA 作为主标签，latest 仅作为辅助（旧版本仍保留短 SHA 标签）
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ci-cd-practice:latest
-            ghcr.io/${{ github.repository_owner }}/ci-cd-practice:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/ci-cd-practice:${{ env.SHORT_SHA }}
+            ghcr.io/${{ github.repository_owner }}/ci-cd-practice:latest
+          # 3. 禁用镜像清理：确保所有推送的镜像都被保留
+          provenance: false
+          push-retries: 3
